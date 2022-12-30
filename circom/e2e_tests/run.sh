@@ -1,11 +1,11 @@
 CIRCUIT_NAME=plonky2
 CIRCUIT_PATH=../circuits/plonky2.circom
 INPUT_PATH=../test/data/proof.json
-POT_PATH=~/Downloads/powersOfTau28_hez_final_25.ptau
-RAPIDSNARK_PATH=../../../../rapidsnark/build/prover
+POT_PATH=/home/ubuntu/ptau/powersOfTau28_hez_final_25.ptau
+RAPIDSNARK_PATH="$(which rapidsnarkprover)"
+SNARKJS_PATH="$(which snarkjs)"
 # node version > 18
 NODE_PATH=node
-SNARKJS_PATH=../../../../snarkjs/cli.js
 NODE_PARAMS="--trace-gc --trace-gc-ignore-scavenger --max-old-space-size=2048000 --initial-old-space-size=2048000 --no-global-gc-scheduling --no-incremental-marking --max-semi-space-size=1024 --initial-heap-size=2048000 --expose-gc"
 
 echo "****COMPILING CIRCUIT****"
