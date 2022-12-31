@@ -994,12 +994,14 @@ mod tests {
     use crate::config::PoseidonBN128GoldilocksConfig;
     use anyhow::Result;
     use plonky2::field::extension::Extendable;
+    use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::fri::reduction_strategies::FriReductionStrategy;
     use plonky2::fri::FriConfig;
     use plonky2::hash::hash_types::RichField;
+    use plonky2::hash::poseidon::PoseidonHash;
     use plonky2::iop::witness::WitnessWrite;
     use plonky2::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
-    use plonky2::plonk::config::{Hasher, PoseidonGoldilocksConfig};
+    use plonky2::plonk::config::{Hasher, PoseidonGoldilocksConfig, AlgebraicHasher};
     use plonky2::plonk::proof::ProofWithPublicInputs;
     use plonky2::{
         gates::noop::NoopGate,
@@ -1027,6 +1029,7 @@ mod tests {
         [(); C::Hasher::HASH_SIZE]:,
     {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+        
         for _ in 0..num_dummy_gates {
             builder.add_gate(NoopGate, vec![]);
         }
@@ -1044,6 +1047,132 @@ mod tests {
             }
         }
         let proof = data.prove(inputs)?;
+        data.verify(proof.clone())?;
+
+        Ok((proof, data.verifier_only, data.common))
+    }
+
+    /// Creates a dummy proof which should have roughly `num_dummy_gates` gates.
+    fn dummy_proof2<C: GenericConfig<2, F = GoldilocksField>>(
+        config: &CircuitConfig,
+    ) -> Result<(
+        ProofWithPublicInputs<GoldilocksField, C, 2>,
+        VerifierOnlyCircuitData<C, 2>,
+        CommonCircuitData<GoldilocksField, 2>,
+    )>
+    {
+
+        type F = GoldilocksField;
+        type H = GoldilocksHashOut;
+        const D: usize = 2;
+        
+        let standard_config = CircuitConfig::standard_recursion_config();
+
+        use plonky2::plonk::proof::ProofWithPublicInputs;
+    
+        use plonky2::{
+            field::{goldilocks_field::GoldilocksField, types::Field},
+            hash::hash_types::HashOut,
+            iop::witness::PartialWitness,
+            plonk::{
+                circuit_builder::CircuitBuilder,
+                circuit_data::CircuitConfig,
+                config::{GenericConfig, PoseidonGoldilocksConfig},
+            },
+        };
+    
+        use intmax_zkp_core::sparse_merkle_tree::{
+            gadgets::process::process_smt::SparseMerkleProcessProofTarget,
+            goldilocks_poseidon::{
+                GoldilocksHashOut, LayeredLayeredPoseidonSparseMerkleTree,
+                LayeredLayeredPoseidonSparseMerkleTreeMemory, NodeDataMemory,
+                PoseidonSparseMerkleTreeMemory,
+            },
+        };
+        use intmax_zkp_core::zkdsa::account::private_key_to_account;
+    
+        use intmax_zkp_core::recursion::gadgets::RecursiveProofTarget;
+
+        const N_LOG_MAX_USERS: usize = 32;
+    
+        let sender1_private_key = HashOut {
+            elements: [
+                GoldilocksField::from_canonical_u64(17426287337377512978),
+                GoldilocksField::from_canonical_u64(8703645504073070742),
+                GoldilocksField::from_canonical_u64(11984317793392655464),
+                GoldilocksField::from_canonical_u64(9979414176933652180),
+            ],
+        };
+        let sender1_account = private_key_to_account(sender1_private_key);
+    
+        let sender2_private_key = HashOut {
+            elements: [
+                GoldilocksField::from_canonical_u64(17814943904840276189),
+                GoldilocksField::from_canonical_u64(12088887497349422745),
+                GoldilocksField::from_canonical_u64(1199609976110004574),
+                GoldilocksField::from_canonical_u64(13794990519201211279),
+            ],
+        };
+        let sender2_account = private_key_to_account(sender2_private_key);
+    
+        let mut world_state_tree =
+        PoseidonSparseMerkleTreeMemory::new(NodeDataMemory::default(), Default::default());
+
+        let key1 = (
+            GoldilocksHashOut::from_u128(12),
+            GoldilocksHashOut::from_u128(305),
+            GoldilocksHashOut::from_u128(8012),
+        );
+        let value1 = GoldilocksHashOut::from_u128(2053);
+        let key2 = (
+            GoldilocksHashOut::from_u128(12),
+            GoldilocksHashOut::from_u128(471),
+            GoldilocksHashOut::from_u128(8012),
+        );
+        let value2 = GoldilocksHashOut::from_u128(1111);
+        let zero = GoldilocksHashOut::ZERO;
+        
+    
+        let root_test = GoldilocksHashOut::rand(); // sender2_user_asset_tree.get_root()
+        
+        let witness = world_state_tree
+            .set(
+                sender1_account.address.to_hash_out().into(),
+                root_test
+            )
+            .unwrap();
+        dbg!(&witness);
+        witness.check();
+        let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+        
+        assert!(N_LOG_MAX_USERS > witness.siblings.len());
+        let target: SparseMerkleProcessProofTarget<N_LOG_MAX_USERS> =
+            SparseMerkleProcessProofTarget::add_virtual_to::<F, PoseidonHash, D>(&mut builder);
+            /* 
+        builder.register_public_inputs(&target.old_key.elements);
+        builder.register_public_inputs(&target.old_value.elements);
+        builder.register_public_inputs(&target.new_key.elements);
+        builder.register_public_inputs(&target.new_value.elements);*/
+        builder.register_public_inputs(&target.old_root.elements);
+        builder.register_public_inputs(&target.new_root.elements);
+    
+        // dbg!(&data.common);
+    
+        let mut pw = PartialWitness::new();
+        let start = std::time::Instant::now();
+        target.set_witness(&mut pw, &witness);
+        /*
+        for _ in 0..num_dummy_gates {
+            builder.add_gate(NoopGate, vec![]);
+        }
+        let mut pi = Vec::new();
+        if num_public_inputs > 0 {
+            pi = builder.add_virtual_targets(num_public_inputs as usize);
+            builder.register_public_inputs(&pi);
+        }
+*/
+        let data = builder.build();
+        let proof = data.prove(pw)?;
         data.verify(proof.clone())?;
 
         Ok((proof, data.verifier_only, data.common))
@@ -1335,6 +1464,44 @@ mod tests {
         let standard_config = CircuitConfig::standard_recursion_config();
         let (proof, vd, cd) = dummy_proof::<F, C, D>(&standard_config, 4_000, 4)?;
 
+        let conf = generate_verifier_config(&proof)?;
+        let (circom_constants, circom_gates) = generate_circom_verifier(&conf, &cd, &vd)?;
+
+        let mut circom_file = File::create("./circom/circuits/constants.circom")?;
+        circom_file.write_all(circom_constants.as_bytes())?;
+        circom_file = File::create("./circom/circuits/gates.circom")?;
+        circom_file.write_all(circom_gates.as_bytes())?;
+
+        let proof_json = generate_proof_base64(&proof, &conf)?;
+
+        if !Path::new("./circom/test/data").is_dir() {
+            std::fs::create_dir("./circom/test/data")?;
+        }
+
+        let mut proof_file = File::create("./circom/test/data/proof.json")?;
+        proof_file.write_all(proof_json.as_bytes())?;
+
+        let mut conf_file = File::create("./circom/test/data/conf.json")?;
+        conf_file.write_all(serde_json::to_string(&conf)?.as_ref())?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_recursive_verifier2() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        let standard_config = CircuitConfig::standard_recursion_config();
+
+        let (proof, vd, cd) = dummy_proof2::<C>(&standard_config)?;
+        
+        let (proof, vd, cd) =
+            recursive_proof::<F, C, C, D>(proof, vd, cd, &standard_config, None, true, true)?;
+
+        type CBn128 = PoseidonBN128GoldilocksConfig;
+        let (proof, vd, cd) =
+            recursive_proof::<F, CBn128, C, D>(proof, vd, cd, &standard_config, None, true, true)?;
         let conf = generate_verifier_config(&proof)?;
         let (circom_constants, circom_gates) = generate_circom_verifier(&conf, &cd, &vd)?;
 
