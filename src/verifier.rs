@@ -1104,7 +1104,7 @@ mod tests {
     }
 
     #[test]
-    fn test_verify_process_proof2_by_plonky2() -> Result<()>{
+    fn test_oas_gen_proof() -> Result<()>{
         use serde_json::json;
         use plonky2::plonk::proof::ProofWithPublicInputs;
     
