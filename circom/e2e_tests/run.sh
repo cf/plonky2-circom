@@ -3,14 +3,14 @@ CIRCUIT_PATH=../circuits/plonky2.circom
 INPUT_PATH=../test/data/proof.json
 POT_PATH=/home/ubuntu/ptau/powersOfTau28_hez_final_25.ptau
 RAPIDSNARK_PATH="$(which rapidsnarkprover)"
-SNARKJS_PATH="$(which snarkjs)"
+SNARKJS_PATH=/home/ubuntu/pc/snarkjs/cli.js
+NODE_PATH=/home/ubuntu/.nvm/versions/node/v18.12.1/bin/node
 # node version > 18
-NODE_PATH=node
 NODE_PARAMS="--trace-gc --trace-gc-ignore-scavenger --max-old-space-size=2048000 --initial-old-space-size=2048000 --no-global-gc-scheduling --no-incremental-marking --max-semi-space-size=1024 --initial-heap-size=2048000 --expose-gc"
 
 echo "****COMPILING CIRCUIT****"
 start=$(date +%s)
-circom ${CIRCUIT_PATH} --r1cs --sym --c
+#circom ${CIRCUIT_PATH} --r1cs --sym --c
 end=$(date +%s)
 echo "DONE ($((end - start))s)"
 
@@ -30,13 +30,15 @@ echo "****GENERATING ZKEY 0****"
 # If failed: https://hackmd.io/@yisun/BkT0RS87q
 start=$(date +%s)
 #${NODE_PATH} ${NODE_PARAMS} ${SNARKJS_PATH} groth16 setup $CIRCUIT_NAME.r1cs ${POT_PATH} "$CIRCUIT_NAME"_0.zkey
-${NODE_PATH} ${NODE_PARAMS} ${SNARKJS_PATH} zkey new $CIRCUIT_NAME.r1cs ${POT_PATH} "$CIRCUIT_NAME"_0.zkey -v > zkey0.out
+#node --trace-gc --trace-gc-ignore-scavenger --max-old-space-size=6048000 --initial-old-space-size=6048000 --no-global-gc-scheduling --no-incremental-marking --max-semi-space-size=1024 --initial-heap-size=6048000 --expose-gc /home/ubuntu/pc/snarkjs/cli.js zkey new $CIRCUIT_NAME.r1cs ${POT_PATH} "$CIRCUIT_NAME"_0.zkey -v > zkey0.out
+node --trace-gc --trace-gc-ignore-scavenger --max-old-space-size=6048000 --initial-old-space-size=6048000 --no-global-gc-scheduling --no-incremental-marking --max-semi-space-size=1024 --initial-heap-size=6048000 --expose-gc /home/ubuntu/pc/snarkjs/cli.js zkey new $CIRCUIT_NAME.r1cs "${POT_PATH}" $CIRCUIT_NAME.zkey -v > zkey0.out
+
 end=$(date +%s)
 echo "DONE ($((end - start))s)"
 
 echo "****CONTRIBUTE TO PHASE 2 CEREMONY****"
 start=$(date +%s)
-${NODE_PATH} ${NODE_PARAMS} ${SNARKJS_PATH} zkey contribute -verbose "$CIRCUIT_NAME"_0.zkey "$CIRCUIT_NAME".zkey -n="First phase2 contribution" -e="some random text" > contribute.out
+#${NODE_PATH} ${NODE_PARAMS} ${SNARKJS_PATH} zkey contribute -verbose "$CIRCUIT_NAME"_0.zkey "$CIRCUIT_NAME".zkey -n="First phase2 contribution" -e="some random text" > contribute.out
 end=$(date +%s)
 echo "DONE ($((end - start))s)"
 
