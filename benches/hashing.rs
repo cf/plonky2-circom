@@ -12,7 +12,7 @@ pub(crate) fn bench_gl_poseidon<F: RichField>(c: &mut Criterion) {
         &format!("goldilocks poseidon<{}, {SPONGE_WIDTH}>", type_name::<F>()),
         |b| {
             b.iter_batched(
-                || F::rand_arr::<SPONGE_WIDTH>(),
+                || F::rand_array::<SPONGE_WIDTH>(),
                 |state| PoseidonPermutation::permute(state),
                 BatchSize::SmallInput,
             )
@@ -25,7 +25,7 @@ pub(crate) fn bench_bn128_poseidon<F: RichField>(c: &mut Criterion) {
         &format!("bn128 poseidon<{}, {SPONGE_WIDTH}>", type_name::<F>()),
         |b| {
             b.iter_batched(
-                || F::rand_arr::<SPONGE_WIDTH>(),
+                || F::rand_array::<SPONGE_WIDTH>(),
                 |state| PoseidonBN128Permutation::permute(state),
                 BatchSize::SmallInput,
             )

@@ -10,7 +10,7 @@ NODE_PARAMS="--trace-gc --trace-gc-ignore-scavenger --max-old-space-size=2048000
 
 echo "****COMPILING CIRCUIT****"
 start=$(date +%s)
-#circom ${CIRCUIT_PATH} --r1cs --sym --c
+circom ${CIRCUIT_PATH} --r1cs --sym --c
 end=$(date +%s)
 echo "DONE ($((end - start))s)"
 
@@ -31,7 +31,10 @@ echo "****GENERATING ZKEY 0****"
 start=$(date +%s)
 #${NODE_PATH} ${NODE_PARAMS} ${SNARKJS_PATH} groth16 setup $CIRCUIT_NAME.r1cs ${POT_PATH} "$CIRCUIT_NAME"_0.zkey
 #node --trace-gc --trace-gc-ignore-scavenger --max-old-space-size=6048000 --initial-old-space-size=6048000 --no-global-gc-scheduling --no-incremental-marking --max-semi-space-size=1024 --initial-heap-size=6048000 --expose-gc /home/ubuntu/pc/snarkjs/cli.js zkey new $CIRCUIT_NAME.r1cs ${POT_PATH} "$CIRCUIT_NAME"_0.zkey -v > zkey0.out
-node --trace-gc --trace-gc-ignore-scavenger --max-old-space-size=6048000 --initial-old-space-size=6048000 --no-global-gc-scheduling --no-incremental-marking --max-semi-space-size=1024 --initial-heap-size=6048000 --expose-gc /home/ubuntu/pc/snarkjs/cli.js zkey new $CIRCUIT_NAME.r1cs "${POT_PATH}" $CIRCUIT_NAME.zkey -v > zkey0.out
+#node --trace-gc --trace-gc-ignore-scavenger --max-old-space-size=6048000 --initial-old-space-size=6048000 --no-global-gc-scheduling --no-incremental-marking --max-semi-space-size=1024 --initial-heap-size=6048000 --expose-gc /home/ubuntu/pc/snarkjs/cli.js zkey new $CIRCUIT_NAME.r1cs "${POT_PATH}" $CIRCUIT_NAME.zkey -v > zkey0.out
+#node --trace-gc --trace-gc-ignore-scavenger --max-old-space-size=6048000 --initial-old-space-size=6048000 --no-global-gc-scheduling --no-incremental-marking --max-semi-space-size=1024 --initial-heap-size=6048000 --expose-gc /home/ubuntu/pc/snarkjs/cli.js zkey new $CIRCUIT_NAME.r1cs "${POT_PATH}" $CIRCUIT_NAME.zkey -v > zkey0.out
+node --trace-gc --trace-gc-ignore-scavenger --max-old-space-size=6048000 --initial-old-space-size=6048000 --no-global-gc-scheduling --no-incremental-marking --max-semi-space-size=1024 --initial-heap-size=6048000 --expose-gc /home/ubuntu/pc/snarkjs/cli.js groth16 setup $CIRCUIT_NAME.r1cs "${POT_PATH}" $CIRCUIT_NAME.zkey -v > zkey0.out
+#snarkjs groth16 setup multiplier2.r1cs pot12_final.ptau multiplier2_0000.zkey
 
 end=$(date +%s)
 echo "DONE ($((end - start))s)"
@@ -39,30 +42,35 @@ echo "DONE ($((end - start))s)"
 echo "****CONTRIBUTE TO PHASE 2 CEREMONY****"
 start=$(date +%s)
 #${NODE_PATH} ${NODE_PARAMS} ${SNARKJS_PATH} zkey contribute -verbose "$CIRCUIT_NAME"_0.zkey "$CIRCUIT_NAME".zkey -n="First phase2 contribution" -e="some random text" > contribute.out
+
+
+${NODE_PATH} ${NODE_PARAMS}  ${SNARKJS_PATH} zkey contribute $CIRCUIT_NAME.zkey ${CIRCUIT_NAME}_final.zkey --name="Carter Jack Feldmn" -v 
+
 end=$(date +%s)
 echo "DONE ($((end - start))s)"
 
 echo "****VERIFYING FINAL ZKEY (SKIP FOR TESTING)****"
 start=$(date +%s)
-#${NODE_PATH} ${NODE_PARAMS} ${SNARKJS_PATH} zkey verify -verbose "$CIRCUIT_NAME".r1cs ${POT_PATH} "$CIRCUIT_NAME".zkey > verify.out
+#${NODE_PATH} ${NODE_PARAMS} ${SNARKJS_PATH} zkey verify -verbose "$CIRCUIT_NAME".r1cs ${POT_PATH} "$CIRCUIT_NAME"_final.zkey > verify.out
 end=$(date +%s)
 echo "DONE ($((end - start))s)"
 
 echo "****EXPORTING VKEY****"
 start=$(date +%s)
-${NODE_PATH} ${SNARKJS_PATH} zkey export verificationkey "$CIRCUIT_NAME".zkey verification_key.json -v
+${NODE_PATH} ${SNARKJS_PATH} zkey export verificationkey "$CIRCUIT_NAME"_final.zkey verification_key.json -v
 end=$(date +%s)
 echo "DONE ($((end - start))s)"
 
 echo "****GENERATING PROOF****"
 start=$(date +%s)
-${RAPIDSNARK_PATH} "$CIRCUIT_NAME".zkey ./witness.wtns proof.json public.json
+${RAPIDSNARK_PATH} ${CIRCUIT_NAME}_final.zkey ./witness.wtns proof.json public.json
 #${NODE_PATH} ${SNARKJS_PATH} groth16 prove "$CIRCUIT_NAME".zkey ./witness.wtns proof.json public.json
 end=$(date +%s)
 echo "DONE ($((end - start))s)"
 
 echo "****VERIFYING PROOF****"
 start=$(date +%s)
+#${NODE_PATH} ${SNARKJS_PATH} plonk verify verification_key.json public.json proof.json -v
 ${NODE_PATH} ${SNARKJS_PATH} groth16 verify verification_key.json public.json proof.json -v
 end=$(date +%s)
 echo "DONE ($((end - start))s)"

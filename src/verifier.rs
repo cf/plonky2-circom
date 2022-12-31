@@ -1104,6 +1104,230 @@ mod tests {
     }
 
     #[test]
+    fn test_verify_process_proof2_by_plonky2() -> Result<()>{
+        use serde_json::json;
+        use plonky2::plonk::proof::ProofWithPublicInputs;
+    
+        use plonky2::{
+            field::{goldilocks_field::GoldilocksField, types::Field},
+            hash::hash_types::HashOut,
+            iop::witness::PartialWitness,
+            plonk::{
+                circuit_builder::CircuitBuilder,
+                circuit_data::CircuitConfig,
+                config::{GenericConfig, PoseidonGoldilocksConfig},
+            },
+        };
+    
+        use intmax_zkp_core::sparse_merkle_tree::{
+            gadgets::process::process_smt::SparseMerkleProcessProofTarget,
+            goldilocks_poseidon::{
+                GoldilocksHashOut, LayeredLayeredPoseidonSparseMerkleTree,
+                LayeredLayeredPoseidonSparseMerkleTreeMemory, NodeDataMemory,
+                PoseidonSparseMerkleTreeMemory,
+            },
+        };
+        use intmax_zkp_core::zkdsa::account::private_key_to_account;
+    
+        use intmax_zkp_core::recursion::gadgets::RecursiveProofTarget;
+    
+    
+        const D: usize = 2; // extension degree
+        type C = PoseidonGoldilocksConfig;
+        type H = <C as GenericConfig<D>>::InnerHasher;
+        type F = <C as GenericConfig<D>>::F;
+        // type F = GoldilocksField;
+        const N_LOG_MAX_USERS: usize = 32;
+    
+        let sender1_private_key = HashOut {
+            elements: [
+                GoldilocksField::from_canonical_u64(17426287337377512978),
+                GoldilocksField::from_canonical_u64(8703645504073070742),
+                GoldilocksField::from_canonical_u64(11984317793392655464),
+                GoldilocksField::from_canonical_u64(9979414176933652180),
+            ],
+        };
+        let sender1_account = private_key_to_account(sender1_private_key);
+    
+        let sender2_private_key = HashOut {
+            elements: [
+                GoldilocksField::from_canonical_u64(17814943904840276189),
+                GoldilocksField::from_canonical_u64(12088887497349422745),
+                GoldilocksField::from_canonical_u64(1199609976110004574),
+                GoldilocksField::from_canonical_u64(13794990519201211279),
+            ],
+        };
+        let sender2_account = private_key_to_account(sender2_private_key);
+    
+        let mut world_state_tree =
+            PoseidonSparseMerkleTreeMemory::new(NodeDataMemory::default(), Default::default());
+    
+        let mut sender1_user_asset_tree: LayeredLayeredPoseidonSparseMerkleTreeMemory =
+            LayeredLayeredPoseidonSparseMerkleTree::new(Default::default(), Default::default());
+        let key1 = (
+            GoldilocksHashOut::from_u128(12),
+            GoldilocksHashOut::from_u128(305),
+            GoldilocksHashOut::from_u128(8012),
+        );
+        let value1 = GoldilocksHashOut::from_u128(2053);
+        let key2 = (
+            GoldilocksHashOut::from_u128(12),
+            GoldilocksHashOut::from_u128(471),
+            GoldilocksHashOut::from_u128(8012),
+        );
+        let value2 = GoldilocksHashOut::from_u128(1111);
+        let zero = GoldilocksHashOut::ZERO;
+        let witness = sender1_user_asset_tree
+            .set(key1.0, key1.1, key1.2, value1)
+            .unwrap();
+        witness.0.check();
+        witness.1.check();
+        witness.2.check();
+    
+        let witness = sender1_user_asset_tree
+            .set(key1.0, key1.1, key1.2, value1)
+            .unwrap();
+        witness.0.check();
+        witness.1.check();
+        witness.2.check();
+    
+        let witness = sender1_user_asset_tree
+            .set(key2.0, key2.1, key2.2, value2)
+            .unwrap();
+        witness.0.check();
+        witness.1.check();
+        witness.2.check();
+    
+        let witness = world_state_tree
+            .set(
+                sender1_account.address.to_hash_out().into(),
+                sender1_user_asset_tree.get_root().unwrap(),
+            )
+            .unwrap();
+        witness.check();
+    
+        let witness = sender1_user_asset_tree
+            .set(key2.0, key2.1, key2.2, zero)
+            .unwrap();
+        witness.0.check();
+        witness.1.check();
+        witness.2.check();
+        let witness = sender1_user_asset_tree
+            .set(key1.0, key1.1, key1.2, zero)
+            .unwrap();
+        witness.0.check();
+        witness.1.check();
+        witness.2.check();
+    
+        let sender2_user_asset_root = GoldilocksHashOut::rand(); // sender2_user_asset_tree.get_root()
+        let witness2 = world_state_tree
+            .set(
+                sender2_account.address.to_hash_out().into(),
+                sender2_user_asset_root,
+            )
+            .unwrap();
+        witness2.check();
+    
+        let witness = world_state_tree
+            .set(
+                sender1_account.address.to_hash_out().into(),
+                sender1_user_asset_tree.get_root().unwrap(),
+            )
+            .unwrap();
+        dbg!(&witness);
+        witness.check();
+    
+        let config = CircuitConfig::standard_recursion_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+        // builder.debug_gate_row = Some(83);
+    
+        println!("  ▐░▌  _____   ______  ____        ▐░▌  \n ▐░▌  /\\  __`\\/\\  _  \\/\\  _`\\       ▐░▌ \n▐░▌   \\ \\ \\/\\ \\ \\ \\L\\ \\ \\,\\L\\_\\      ▐░▌\n▐░▌    \\ \\ \\ \\ \\ \\  __ \\/_\\__ \\      ▐░▌\n▐░▌     \\ \\ \\_\\ \\ \\ \\/\\ \\/\\ \\L\\ \\    ▐░▌\n ▐░▌     \\ \\_____\\ \\_\\ \\_\\ `\\____\\  ▐░▌ \n  ▐░▌     \\/_____/\\/_/\\/_/\\/_____/ ▐░▌  ");
+    
+        assert!(N_LOG_MAX_USERS > witness.siblings.len());
+        let target: SparseMerkleProcessProofTarget<N_LOG_MAX_USERS> =
+            SparseMerkleProcessProofTarget::add_virtual_to::<F, H, D>(&mut builder);
+            /* 
+        builder.register_public_inputs(&target.old_key.elements);
+        builder.register_public_inputs(&target.old_value.elements);
+        builder.register_public_inputs(&target.new_key.elements);
+        builder.register_public_inputs(&target.new_value.elements);*/
+        builder.register_public_inputs(&target.old_root.elements);
+        builder.register_public_inputs(&target.new_root.elements);
+    
+        // dbg!(&data.common);
+    
+        let mut pw = PartialWitness::new();
+        let start = std::time::Instant::now();
+        target.set_witness(&mut pw, &witness);
+    /*
+        match data.verify(proof) {
+            Ok(()) => println!("Ok!"),
+            Err(x) => println!("{}", x),
+        }
+    */
+    
+    
+    
+    
+        // builder.debug_gate_row = Some(83);
+    
+        assert!(N_LOG_MAX_USERS > witness2.siblings.len());
+        let target: SparseMerkleProcessProofTarget<N_LOG_MAX_USERS> =
+            SparseMerkleProcessProofTarget::add_virtual_to::<F, H, D>(&mut builder);
+            /* 
+        builder.register_public_inputs(&target.old_key.elements);
+        builder.register_public_inputs(&target.old_value.elements);
+        builder.register_public_inputs(&target.new_key.elements);
+        builder.register_public_inputs(&target.new_value.elements);*/
+        builder.register_public_inputs(&target.old_root.elements);
+        builder.register_public_inputs(&target.new_root.elements);
+        let data2 = builder.build::<C>();
+    
+        // dbg!(&data.common);
+    
+        let start = std::time::Instant::now();
+        target.set_witness(&mut pw, &witness2);
+        let proof2 = data2.prove(pw).unwrap();
+        let end = start.elapsed();
+        println!("NFT [1249, 124] Update Proof: {}.{:03} sec", end.as_secs(), end.subsec_millis());
+        println!("Result\n{}\n", json!(proof2));
+        //let compressed = proof2.clone().compress(data2.common.config.cir);
+    
+        let proof = proof2.clone();
+    
+        match data2.verify(proof2) {
+            Ok(()) => println!("Ok!"),
+            Err(x) => println!("{}", x),
+        }
+
+        let vd = data2.verifier_only;
+        let cd = data2.common;
+    
+        let conf = generate_verifier_config(&proof)?;
+        let (circom_constants, circom_gates) = generate_circom_verifier(&conf, &cd, &vd)?;
+
+        let mut circom_file = File::create("./circom/circuits/constants.circom")?;
+        circom_file.write_all(circom_constants.as_bytes())?;
+        circom_file = File::create("./circom/circuits/gates.circom")?;
+        circom_file.write_all(circom_gates.as_bytes())?;
+
+        let proof_json = generate_proof_base64(&proof, &conf)?;
+
+        if !Path::new("./circom/test/data").is_dir() {
+            std::fs::create_dir("./circom/test/data")?;
+        }
+
+        let mut proof_file = File::create("./circom/test/data/proof.json")?;
+        proof_file.write_all(proof_json.as_bytes())?;
+
+        let mut conf_file = File::create("./circom/test/data/conf.json")?;
+        conf_file.write_all(serde_json::to_string(&conf)?.as_ref())?;
+
+        Ok(())
+
+    }
+    
+    #[test]
     fn test_verifier_with_public_inputs() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonBN128GoldilocksConfig;
