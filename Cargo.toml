@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-plonky2 = { git = "https://github.com/polymerdao/plonky2", rev = "4cb0b48df1d227d5461a4c28ed025aaea64e2e62" }
-plonky2_util = { git = "https://github.com/polymerdao/plonky2", rev = "4cb0b48df1d227d5461a4c28ed025aaea64e2e62" }
-plonky2_ecdsa = { git = "https://github.com/polymerdao/plonky2", rev = "4cb0b48df1d227d5461a4c28ed025aaea64e2e62" }
-intmax-zkp-core = { git = "https://github.com/historyz/intmax-zkp-core", rev = "eff47a863d06dea8826f4240c9f564a149a7ce5c" }
+plonky2 = { git = "https://github.com/historyz/plonky2", rev = "4cb0b48df1d227d5461a4c28ed025aaea64e2e62" }
+plonky2_util = { git = "https://github.com/historyz/plonky2", rev = "4cb0b48df1d227d5461a4c28ed025aaea64e2e62" }
+plonky2_ecdsa = { git = "https://github.com/historyz/plonky2", rev = "4cb0b48df1d227d5461a4c28ed025aaea64e2e62" }
+intmax-zkp-core = { git = "https://github.com/historyz/intmax-zkp-core", rev = "1de90a022f8a3d04cde73505b9cf0804fbef487f" }
 poseidon-permutation = { path = "../poseidon-permutation-rs"}
 rand = "0.8"
 serde = { version = "1.0.145", features = ["derive"] }
